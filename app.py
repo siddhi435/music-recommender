@@ -1,176 +1,239 @@
-import streamlit as st
-import random
 
-# PAGE SETTINGS
+import streamlit as st
+import pandas as pd
+import random
+import time
+import os
+import plotly.express as px
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+
+# ================= PAGE SETTINGS =================
+
 st.set_page_config(
     page_title="AI Music Recommender",
     page_icon="🎵",
-    layout="centered"
+    layout="wide"
 )
 
-# CUSTOM CSS
+# ================= DATASET =================
+
+csv_path = os.path.join(os.path.dirname(__file__), "songs.csv")
+df = pd.read_csv(csv_path)
+
+# ================= AI ENGINE =================
+
+df["combined_features"] = (
+    df["artist"] + " " +
+    df["genre"] + " " +
+    df["mood"]
+)
+
+vectorizer = CountVectorizer()
+feature_vectors = vectorizer.fit_transform(df["combined_features"])
+
+similarity = cosine_similarity(feature_vectors)
+
+# ================= CUSTOM CSS =================
+
 st.markdown("""
 <style>
 
-.stApp {
-    background: linear-gradient(to right, #0f172a, #020617);
-    color: white;
+.stApp{
+    background: linear-gradient(135deg, #0f1419, #1a1f2e);
+    color:white;
 }
 
-.main-title {
-    text-align: center;
-    font-size: 55px;
-    font-weight: bold;
-    color: #38bdf8;
+.main-title{
+    text-align:center;
+    font-size:60px;
+    font-weight:bold;
+    color:#00d4ff;
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
 }
 
-.subtitle {
-    text-align: center;
-    font-size: 20px;
-    color: #cbd5e1;
-    margin-bottom: 40px;
+.subtitle{
+    text-align:center;
+    font-size:22px;
+    color:#b0b0b0;
+    margin-bottom:30px;
 }
 
-.song-box {
-    background-color: #111827;
-    padding: 18px;
-    border-radius: 15px;
-    margin-top: 15px;
-    border-left: 5px solid #38bdf8;
-    box-shadow: 0px 0px 12px rgba(56,189,248,0.2);
+.song-card{
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(0, 150, 150, 0.1));
+    padding:20px;
+    border-radius:15px;
+    margin-bottom:15px;
+    border-left: 4px solid #00d4ff;
 }
 
-.quote-box {
-    background-color: #1e293b;
-    padding: 15px;
-    border-radius: 12px;
-    margin-top: 20px;
-    text-align: center;
-    color: #f8fafc;
+.song-title{
+    font-size:28px;
+    font-weight:bold;
+    color:#00d4ff;
+}
+
+.song-artist{
+    color:#a0d4ff;
+    font-size:18px;
 }
 
 </style>
 """, unsafe_allow_html=True)
 
-# SONG DATA
-songs = {
+# ================= FUNCTIONS =================
 
-    "Happy": [
-        ("Happy - Pharrell Williams",
-         "https://www.youtube.com/watch?v=ZbZSe6N_BXs"),
+def get_song_recommendations(song_name):
 
-        ("Uptown Funk - Bruno Mars",
-         "https://www.youtube.com/watch?v=OPf0YbXqDm0"),
-
-        ("Can't Stop The Feeling",
-         "https://www.youtube.com/watch?v=ru0K8uYEZWw")
-    ],
-
-    "Sad": [
-        ("Someone Like You - Adele",
-         "https://www.youtube.com/watch?v=hLQl3WQQoQ0"),
-
-        ("Fix You - Coldplay",
-         "https://www.youtube.com/watch?v=k4V3Mo61fJM"),
-
-        ("Let Her Go - Passenger",
-         "https://www.youtube.com/watch?v=RBumgq5yVrA")
-    ],
-
-    "Relaxed": [
-        ("Perfect - Ed Sheeran",
-         "https://www.youtube.com/watch?v=2Vv-BfVoq4g"),
-
-        ("Photograph - Ed Sheeran",
-         "https://www.youtube.com/watch?v=nSDgHBxUbVQ"),
-
-        ("Memories - Maroon 5",
-         "https://www.youtube.com/watch?v=SlPhMPnQ58k")
-    ],
-
-    "Energetic": [
-        ("Believer - Imagine Dragons",
-         "https://www.youtube.com/watch?v=7wtfhZwyrcc"),
-
-        ("Thunder - Imagine Dragons",
-         "https://www.youtube.com/watch?v=fKopy74weus"),
-
-        ("Hall Of Fame - The Script",
-         "https://www.youtube.com/watch?v=mk48xRzuNvA")
+    matching = df[
+        df['song'].str.lower().str.contains(song_name.lower(), na=False)
     ]
-}
 
-# MOTIVATION QUOTES
-quotes = [
-    "Music is the strongest form of magic ✨",
-    "Feel the music, live the moment 🎶",
-    "Good music heals everything ❤️",
-    "Your mood decides your playlist 🎧"
-]
+    if matching.empty:
+        return pd.DataFrame()
 
-# TITLE
-st.markdown(
-    '<div class="main-title">🎵 AI Music Recommender</div>',
-    unsafe_allow_html=True
-)
+    song_index = matching.index[0]
 
-st.markdown(
-    '<div class="subtitle">Get songs based on your mood</div>',
-    unsafe_allow_html=True
-)
+    similarity_scores = list(enumerate(similarity[song_index]))
 
-# FEATURE 1 → Mood Selection
-mood = st.selectbox(
-    "Choose Your Mood",
-    ["Happy", "Sad", "Relaxed", "Energetic"]
-)
-
-# FEATURE 2 → Music Type
-music_type = st.radio(
-    "Choose Music Type",
-    ["English", "Chill", "Party"]
-)
-
-# BUTTON
-if st.button("🎶 Recommend Songs"):
-
-    st.success(f"Showing {mood} songs")
-
-    for song, link in songs[mood]:
-
-        st.markdown(
-            f"""
-            <div class="song-box">
-                <h3>{song}</h3>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        st.link_button(
-            "▶ Listen on YouTube",
-            link
-        )
-
-    # RANDOM QUOTE FEATURE
-    st.markdown(
-        f"""
-        <div class="quote-box">
-            {random.choice(quotes)}
-        </div>
-        """,
-        unsafe_allow_html=True
+    sorted_songs = sorted(
+        similarity_scores,
+        key=lambda x: x[1],
+        reverse=True
     )
 
-# SIDEBAR
-st.sidebar.title("🎧 About")
+    recommended_indices = [
+        i[0] for i in sorted_songs[1:11]
+    ]
 
-st.sidebar.info("""
-This AI Music Recommender suggests songs based on your mood.
+    recommendations = df.iloc[recommended_indices]
 
-Features:
-✅ Mood-based recommendations  
-✅ YouTube song links  
-✅ Music categories  
-✅ Motivational quotes  
-""")
+    return recommendations
+
+
+# ================= HEADER =================
+
+st.markdown(
+    '<div class="main-title">🎵 AI Music Recommender Pro</div>',
+    unsafe_allow_html=True
+)
+
+st.markdown(
+    '<div class="subtitle">Intelligent Music Discovery Powered by AI</div>',
+    unsafe_allow_html=True
+)
+
+# ================= SEARCH =================
+
+col1, col2 = st.columns([2, 1])
+
+with col2:
+    sort_by = st.selectbox(
+        "Sort by",
+        ["Popularity", "Year"]
+    )
+
+with col1:
+    search_song = st.text_input(
+        "🔍 Search Song",
+        placeholder="Type song name..."
+    )
+
+# ================= BUTTON =================
+
+if st.button("🎧 Get AI Recommendations", use_container_width=True):
+
+    with st.spinner("🤖 AI is finding similar songs..."):
+        time.sleep(1)
+
+        if search_song.strip() == "":
+            recommendations = df.sort_values(
+                "popularity",
+                ascending=False
+            ).head(10)
+
+        else:
+            recommendations = get_song_recommendations(search_song)
+
+    # ================= RESULTS =================
+
+    if len(recommendations) > 0:
+
+        st.success(f"✨ Found {len(recommendations)} recommended songs!")
+
+        # Sorting
+        if sort_by == "Popularity":
+            recommendations = recommendations.sort_values(
+                "popularity",
+                ascending=False
+            )
+
+        if sort_by == "Year":
+            recommendations = recommendations.sort_values(
+                "year",
+                ascending=False
+            )
+
+        # Chart
+        fig = px.bar(
+            recommendations,
+            x="song",
+            y="popularity",
+            color="artist",
+            title="Popularity Scores"
+        )
+
+        fig.update_layout(
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
+            font_color='white'
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        # Song cards
+        for idx, row in recommendations.iterrows():
+
+            st.markdown(f"""<div class="song-card"><div class="song-title">🎵 {row['song']}</div><div class="song-artist">🎤 {row['artist']}</div><br>⭐ Popularity: {row['popularity']} <br>🎸 Genre: {row['genre']} <br>📅 Year: {row['year']} <br>🎭 Mood: {row['mood']}</div>""", unsafe_allow_html=True)
+
+            youtube_link = (
+                f"https://www.youtube.com/results?search_query="
+                f"{row['song']}+{row['artist']}"
+            )
+
+            spotify_link = (
+                f"https://open.spotify.com/search/{row['song']}"
+            )
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown(
+                    f"[▶️ Listen on YouTube]({youtube_link})"
+                )
+
+            with col2:
+                st.markdown(
+                    f"[🎧 Open in Spotify]({spotify_link})"
+                )
+
+    else:
+        st.warning("😔 No similar songs found.")
+
+# ================= FOOTER =================
+
+st.markdown("---")
+
+quotes = [
+    "🎵 Music is the universal language of mankind",
+    "✨ Where words fail, music speaks",
+    "🎧 Music gives a soul to the universe",
+    "💫 Music is the soundtrack of your life"
+]
+
+st.markdown(
+    f"<h3 style='text-align:center;'>"
+    f"{random.choice(quotes)}"
+    f"</h3>",
+    unsafe_allow_html=True
+)
