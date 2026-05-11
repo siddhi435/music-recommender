@@ -2,4 +2,8 @@ streamlit
 pandas
 plotly
 scikit-learn
+<<<<<<< HEAD
 opencv-python
+=======
+opencv-python
+>>>>>>> 40478678eb4157d49f347bf4bdf22d63c12f3634

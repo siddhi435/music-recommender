@@ -166,6 +166,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+<<<<<<< HEAD
 st.markdown(
     '<div style="text-align:center; margin-bottom:20px;">'
     '<a href="http://localhost:8501" target="_blank" style="color:#00d4ff; text-decoration:none; font-weight:600;">'
@@ -174,6 +175,8 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+=======
+>>>>>>> 40478678eb4157d49f347bf4bdf22d63c12f3634
 # ================= SEARCH =================
 
 col1, col2 = st.columns([2, 1])
@@ -311,4 +314,8 @@ st.markdown(
     f"{random.choice(quotes)}"
     f"</h3>",
     unsafe_allow_html=True
+<<<<<<< HEAD
 )
+=======
+)
+>>>>>>> 40478678eb4157d49f347bf4bdf22d63c12f3634
