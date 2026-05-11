@@ -1,15 +1,14 @@
-
 import streamlit as st
 import pandas as pd
 import random
 import time
-import os
-import cv2
-import numpy as np
-from PIL import Image
 import plotly.express as px
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import cv2
+import numpy as np
+from PIL import Image
+import textwrap
 
 # ================= PAGE SETTINGS =================
 
@@ -21,8 +20,53 @@ st.set_page_config(
 
 # ================= DATASET =================
 
-csv_path = os.path.join(os.path.dirname(__file__), "songs.csv")
-df = pd.read_csv(csv_path)
+data = {
+    "song": [
+        "Happy", "Uptown Funk", "Can't Stop The Feeling", "Shape of You",
+        "Someone Like You", "Fix You", "Let Her Go", "Photograph",
+        "Perfect", "Memories", "Faded", "Closer", "Believer",
+        "Thunder", "Hall Of Fame", "Stronger", "Blinding Lights",
+        "Levitating", "Animals", "Titanium", "Dance Monkey", "Circles",
+        "Watermelon Sugar", "Bad Guy", "Old Town Road"
+    ],
+
+    "artist": [
+        "Pharrell Williams", "Bruno Mars", "Justin Timberlake", "Ed Sheeran",
+        "Adele", "Coldplay", "Passenger", "Ed Sheeran", "Ed Sheeran",
+        "Maroon 5", "Alan Walker", "Chainsmokers", "Imagine Dragons",
+        "Imagine Dragons", "The Script", "Kanye West", "The Weeknd",
+        "Dua Lipa", "Martin Garrix", "David Guetta", "Tones And I",
+        "Post Malone", "Harry Styles", "Billie Eilish", "Lil Nas X"
+    ],
+
+    "genre": [
+        "Pop", "Funk", "Pop", "Pop", "Ballad", "Alternative", "Folk",
+        "Pop", "Pop", "Pop", "Electronic", "Electronic", "Rock",
+        "Rock", "Pop", "Hip Hop", "R&B", "Disco", "Electronic",
+        "Electronic", "Pop", "R&B", "Pop", "Pop", "Country"
+    ],
+
+    "mood": [
+        "Happy", "Happy", "Happy", "Happy", "Sad", "Sad", "Sad",
+        "Sad", "Romantic", "Nostalgic", "Chill", "Chill",
+        "Energetic", "Energetic", "Inspirational", "Energetic",
+        "Party", "Party", "Party", "Party", "Dance", "Chill",
+        "Happy", "Dark", "Country"
+    ],
+
+    "year": [
+        2013, 2014, 2016, 2017, 2011, 2005, 2012, 2014, 2017,
+        2019, 2015, 2016, 2017, 2017, 2012, 2007, 2019, 2020,
+        2013, 2011, 2019, 2019, 2019, 2019, 2019
+    ],
+
+    "popularity": [
+        95, 98, 92, 99, 94, 93, 91, 90, 96, 88, 89, 93, 97,
+        94, 92, 88, 99, 96, 87, 91, 95, 91, 98, 94, 97
+    ]
+}
+
+df = pd.DataFrame(data)
 
 # ================= AI ENGINE =================
 
@@ -39,11 +83,11 @@ similarity = cosine_similarity(feature_vectors)
 
 # ================= CUSTOM CSS =================
 
-st.markdown("""
+st.markdown(textwrap.dedent("""
 <style>
 
 .stApp{
-    background: linear-gradient(135deg, #0f1419, #1a1f2e);
+    background: linear-gradient(135deg,#667eea,#764ba2);
     color:white;
 }
 
@@ -51,38 +95,36 @@ st.markdown("""
     text-align:center;
     font-size:60px;
     font-weight:bold;
-    color:#00d4ff;
-    text-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+    color:white;
 }
 
 .subtitle{
     text-align:center;
     font-size:22px;
-    color:#b0b0b0;
+    color:#dddddd;
     margin-bottom:30px;
 }
 
 .song-card{
-    background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(0, 150, 150, 0.1));
+    background: rgba(255,255,255,0.1);
     padding:20px;
-    border-radius:15px;
+    border-radius:20px;
     margin-bottom:15px;
-    border-left: 4px solid #00d4ff;
 }
 
 .song-title{
     font-size:28px;
     font-weight:bold;
-    color:#00d4ff;
+    color:white;
 }
 
 .song-artist{
-    color:#a0d4ff;
+    color:#eeeeee;
     font-size:18px;
 }
 
 </style>
-""", unsafe_allow_html=True)
+"""), unsafe_allow_html=True)
 
 # ================= FUNCTIONS =================
 
@@ -113,45 +155,38 @@ def get_song_recommendations(song_name):
 
     return recommendations
 
+def detect_mood_from_image(image):
+    # Convert PIL Image to OpenCV format
+    opencv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+    
+    # Convert to grayscale
+    gray = cv2.cvtColor(opencv_image, cv2.COLOR_BGR2GRAY)
+    
+    # Load Haar cascades
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    smile_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_smile.xml')
+    
+    # Detect faces
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    
+    if len(faces) == 0:
+        return "Chill"  # Default mood if no face detected
+    
+    # Check for smiles in detected faces
+    for (x, y, w, h) in faces:
+        roi_gray = gray[y:y+h, x:x+w]
+        smiles = smile_cascade.detectMultiScale(roi_gray, scaleFactor=1.7, minNeighbors=22, minSize=(25, 25))
+        
+        if len(smiles) > 0:
+            return "Happy"
+    
+    return "Chill"
 
-def detect_mood_from_image(image: Image.Image) -> str | None:
-    """Detects a simple mood from a camera image using smile detection."""
-    try:
-        img = np.array(image.convert('RGB'))
-        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-
-        face_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
-        )
-        smile_cascade = cv2.CascadeClassifier(
-            cv2.data.haarcascades + 'haarcascade_smile.xml'
-        )
-
-        faces = face_cascade.detectMultiScale(
-            gray,
-            scaleFactor=1.1,
-            minNeighbors=5,
-            minSize=(80, 80)
-        )
-
-        for (x, y, w, h) in faces:
-            roi_gray = gray[y:y+h, x:x+w]
-            smiles = smile_cascade.detectMultiScale(
-                roi_gray,
-                scaleFactor=1.7,
-                minNeighbors=22,
-                minSize=(25, 25)
-            )
-            if len(smiles) > 0:
-                return "Happy"
-
-        if len(faces) > 0:
-            return "Chill"
-
-    except Exception:
-        return None
-
-    return None
+def get_mood_recommendations(mood):
+    mood_songs = df[df['mood'].str.lower() == mood.lower()]
+    if mood_songs.empty:
+        return df.head(10)  # Fallback to top songs
+    return mood_songs.head(10)
 
 
 # ================= HEADER =================
@@ -166,26 +201,9 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-<<<<<<< HEAD
-st.markdown(
-    '<div style="text-align:center; margin-bottom:20px;">'
-    '<a href="http://localhost:8501" target="_blank" style="color:#00d4ff; text-decoration:none; font-weight:600;">'
-    '🌐 Open Global App Link'
-    '</a></div>',
-    unsafe_allow_html=True
-)
-
-=======
->>>>>>> 40478678eb4157d49f347bf4bdf22d63c12f3634
 # ================= SEARCH =================
 
-col1, col2 = st.columns([2, 1])
-
-with col2:
-    sort_by = st.selectbox(
-        "Sort by",
-        ["Popularity", "Year"]
-    )
+col1, col2 = st.columns([3,1])
 
 with col1:
     search_song = st.text_input(
@@ -193,18 +211,24 @@ with col1:
         placeholder="Type song name..."
     )
 
-st.markdown("### Detect mood from camera")
-camera_image = st.camera_input("Take a quick selfie to detect mood")
+with col2:
+    sort_by = st.selectbox(
+        "Sort by",
+        ["Popularity", "Year"]
+    )
+
+# ================= CAMERA MOOD DETECTION =================
+
+st.markdown("### 📸 Detect Mood from Camera")
+
+camera_image = st.camera_input("Take a photo to detect your mood")
+
 detected_mood = None
 
-if camera_image:
-    captured_image = Image.open(camera_image)
-    detected_mood = detect_mood_from_image(captured_image)
-    if detected_mood:
-        st.success(f"Detected mood: {detected_mood}")
-        st.info("If you do not enter a song, recommendations will use your detected mood.")
-    else:
-        st.warning("Unable to detect mood clearly. You can still search for a song manually.")
+if camera_image is not None:
+    image = Image.open(camera_image)
+    detected_mood = detect_mood_from_image(image)
+    st.success(f"🎭 Detected Mood: {detected_mood}")
 
 # ================= BUTTON =================
 
@@ -213,25 +237,15 @@ if st.button("🎧 Get AI Recommendations", use_container_width=True):
     with st.spinner("🤖 AI is finding similar songs..."):
         time.sleep(1)
 
-        if search_song.strip() == "":
-            if detected_mood:
-                recommendations = df[df['mood'] == detected_mood]
-                if recommendations.empty:
-                    recommendations = df.sort_values(
-                        "popularity",
-                        ascending=False
-                    ).head(10)
-            else:
-                recommendations = df.sort_values(
-                    "popularity",
-                    ascending=False
-                ).head(10)
-
+        if detected_mood is not None:
+            recommendations = get_mood_recommendations(detected_mood)
+        elif search_song.strip() == "":
+            recommendations = df.sort_values(
+                "popularity",
+                ascending=False
+            ).head(10)
         else:
             recommendations = get_song_recommendations(search_song)
-            if recommendations.empty and detected_mood:
-                st.info("No exact song match found. Showing mood-based recommendations instead.")
-                recommendations = df[df['mood'] == detected_mood]
 
     # ================= RESULTS =================
 
@@ -272,7 +286,17 @@ if st.button("🎧 Get AI Recommendations", use_container_width=True):
         # Song cards
         for idx, row in recommendations.iterrows():
 
-            st.markdown(f"""<div class="song-card"><div class="song-title">🎵 {row['song']}</div><div class="song-artist">🎤 {row['artist']}</div><br>⭐ Popularity: {row['popularity']} <br>🎸 Genre: {row['genre']} <br>📅 Year: {row['year']} <br>🎭 Mood: {row['mood']}</div>""", unsafe_allow_html=True)
+            st.markdown(
+                f"""
+**🎵 {row['song']}**  
+🎤 *{row['artist']}*  
+
+⭐ **Popularity:** {row['popularity']}  
+🎸 **Genre:** {row['genre']}  
+📅 **Year:** {row['year']}  
+🎭 **Mood:** {row['mood']}
+"""
+            )
 
             youtube_link = (
                 f"https://www.youtube.com/results?search_query="
@@ -314,8 +338,4 @@ st.markdown(
     f"{random.choice(quotes)}"
     f"</h3>",
     unsafe_allow_html=True
-<<<<<<< HEAD
 )
-=======
-)
->>>>>>> 40478678eb4157d49f347bf4bdf22d63c12f3634
