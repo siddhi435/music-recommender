@@ -1,8 +1,12 @@
+
 import streamlit as st
 import pandas as pd
 import random
 import time
 import os
+import cv2
+import numpy as np
+from PIL import Image
 import plotly.express as px
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -110,6 +114,46 @@ def get_song_recommendations(song_name):
     return recommendations
 
 
+def detect_mood_from_image(image: Image.Image) -> str | None:
+    """Detects a simple mood from a camera image using smile detection."""
+    try:
+        img = np.array(image.convert('RGB'))
+        gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+
+        face_cascade = cv2.CascadeClassifier(
+            cv2.data.haarcascades + 'haarcascade_frontalface_default.xml'
+        )
+        smile_cascade = cv2.CascadeClassifier(
+            cv2.data.haarcascades + 'haarcascade_smile.xml'
+        )
+
+        faces = face_cascade.detectMultiScale(
+            gray,
+            scaleFactor=1.1,
+            minNeighbors=5,
+            minSize=(80, 80)
+        )
+
+        for (x, y, w, h) in faces:
+            roi_gray = gray[y:y+h, x:x+w]
+            smiles = smile_cascade.detectMultiScale(
+                roi_gray,
+                scaleFactor=1.7,
+                minNeighbors=22,
+                minSize=(25, 25)
+            )
+            if len(smiles) > 0:
+                return "Happy"
+
+        if len(faces) > 0:
+            return "Chill"
+
+    except Exception:
+        return None
+
+    return None
+
+
 # ================= HEADER =================
 
 st.markdown(
@@ -138,6 +182,19 @@ with col1:
         placeholder="Type song name..."
     )
 
+st.markdown("### Detect mood from camera")
+camera_image = st.camera_input("Take a quick selfie to detect mood")
+detected_mood = None
+
+if camera_image:
+    captured_image = Image.open(camera_image)
+    detected_mood = detect_mood_from_image(captured_image)
+    if detected_mood:
+        st.success(f"Detected mood: {detected_mood}")
+        st.info("If you do not enter a song, recommendations will use your detected mood.")
+    else:
+        st.warning("Unable to detect mood clearly. You can still search for a song manually.")
+
 # ================= BUTTON =================
 
 if st.button("🎧 Get AI Recommendations", use_container_width=True):
@@ -146,13 +203,24 @@ if st.button("🎧 Get AI Recommendations", use_container_width=True):
         time.sleep(1)
 
         if search_song.strip() == "":
-            recommendations = df.sort_values(
-                "popularity",
-                ascending=False
-            ).head(10)
+            if detected_mood:
+                recommendations = df[df['mood'] == detected_mood]
+                if recommendations.empty:
+                    recommendations = df.sort_values(
+                        "popularity",
+                        ascending=False
+                    ).head(10)
+            else:
+                recommendations = df.sort_values(
+                    "popularity",
+                    ascending=False
+                ).head(10)
 
         else:
             recommendations = get_song_recommendations(search_song)
+            if recommendations.empty and detected_mood:
+                st.info("No exact song match found. Showing mood-based recommendations instead.")
+                recommendations = df[df['mood'] == detected_mood]
 
     # ================= RESULTS =================
 
